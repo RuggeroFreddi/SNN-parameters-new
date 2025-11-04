@@ -14,7 +14,8 @@ def simulate_trace(data, labels, parameters, trace_tau):
     end_index = parameters.num_neurons - EXCLUDED_TAIL_NEURONS
     kept_indices = list(range(START_INDEX, end_index))
     rows = []
-
+    
+    avg_spike_count = 0
     for i in range(len(data)):
         if i % 100 == 0:
             print(f"processed {i} of {len(data)} samples")
@@ -25,7 +26,7 @@ def simulate_trace(data, labels, parameters, trace_tau):
         snn.set_input_spike_times(sample)
         snn.set_membrane_potentials(initial_membrane_potentials)
         snn.simulate(trace_tau=trace_tau, reset_trace=True)
-
+        avg_spike_count += snn.tot_spikes
         trace = np.asarray(snn.get_trace()).reshape(-1)
 
         # select only the neurons we want to export
@@ -39,4 +40,4 @@ def simulate_trace(data, labels, parameters, trace_tau):
     columns = trace_columns + ["label"]
 
     df = pd.DataFrame(rows, columns=columns)
-    return df
+    return df, avg_spike_count / len(data)

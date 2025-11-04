@@ -1,4 +1,5 @@
 import os
+import yaml
 from datetime import date
 
 import numpy as np
@@ -12,6 +13,8 @@ from utils.cross_validations import cross_validation_rf
 
 DATASET_PATH = "dati/mnist_rate_encoded.npz"
 CV_NUM_SPLITS = 10
+
+ACCURACY_THRESHOLD = 0.8
 
 NUM_NEURONS = 1000
 MEMBRANE_THRESHOLD = 2
@@ -46,6 +49,34 @@ def load_dataset(filename: str):
     npz_data = np.load(filename)
     return npz_data["X"], npz_data["y"]
 
+def save_experiment_metadata(results_dir: str, parameter_name: str, parameter_values: list[float], weight_segments: dict[float, dict[str, float]]):
+    """Save global parameters, tested parameter values, and weight segments to a YAML file."""
+    metadata = {
+        "global_parameters": {
+            "num_neurons": NUM_NEURONS,
+            "membrane_threshold": MEMBRANE_THRESHOLD,
+            "refractory_period": REFRACTORY_PERIOD,
+            "num_output_neurons": NUM_OUTPUT_NEURONS,
+            "leak_coefficient": LEAK_COEFFICIENT,
+            "current_amplitude": CURRENT_AMPLITUDE,
+            "presynaptic_degree": PRESYNAPTIC_DEGREE,
+            "small_world_graph_p": SMALL_WORLD_GRAPH_P,
+            "small_world_graph_k": SMALL_WORLD_GRAPH_K,
+            "trace_tau": TRACE_TAU,
+            "num_weight_steps": NUM_WEIGHT_STEPS,
+            "cv_num_splits": CV_NUM_SPLITS,
+            "accuracy_threshold": ACCURACY_THRESHOLD,
+        },
+        "tested_parameter": {
+            "name": parameter_name,
+            "values": parameter_values,
+        },
+        "weight_segments": weight_segments,
+    }
+
+    yaml_path = os.path.join(results_dir, "experiment_metadata.yaml")
+    with open(yaml_path, "w") as file:
+        yaml.safe_dump(metadata, file, sort_keys=False)
 
 def compute_critical_weight(
     inputs: np.ndarray,
@@ -134,13 +165,15 @@ def test_parameter_values(data, labels , param_name: str, param_values: list[flo
             critical_weight * 1.4,
             NUM_WEIGHT_STEPS,
         )
-
+        
+        cnt=0
         for weight in weight_values:
-            print(f"\n--- mean_weight = {weight:.6f} ---")
+            cnt += 1
+            print(f"\n--- mean_weight = {weight:.6f} --- execution {cnt}/{NUM_WEIGHT_STEPS} with {param_name} = {param_value}")
             sim_params.mean_weight = weight
             sim_params.weight_variance = weight * 5
 
-            trace_dataset = simulate_trace(
+            trace_dataset, spike_count = simulate_trace(
                 data=data,
                 labels=labels,
                 parameters=sim_params,
@@ -158,11 +191,11 @@ def test_parameter_values(data, labels , param_name: str, param_values: list[flo
                     "param_value": float(param_value),
                     "weight": float(weight),
                     "accuracy": float(mean_accuracy),
+                    "spike_count": float(spike_count)
                 }
             )
 
     return all_results
-
 
 def main():
     os.makedirs("dati", exist_ok=True)
@@ -178,6 +211,9 @@ def main():
     results_df.to_csv(CSV_NAME, index=False)
     print(f"Saved results to {CSV_NAME}")
 
+    # 🔹 qui raccogliamo i segmenti per ogni valore di parametro
+    weight_segments = {}
+
     plt.figure()
 
     for beta in BETA_VALUES:
@@ -191,20 +227,21 @@ def main():
             label=f"beta={beta}",
         )
 
-        # 80% segment
         max_accuracy = beta_df["accuracy"].max()
-        threshold = 0.8 * max_accuracy
-
+        threshold = ACCURACY_THRESHOLD * max_accuracy
         eligible = beta_df[beta_df["accuracy"] >= threshold]
 
         if not eligible.empty:
-            w1 = eligible["weight"].min()
-            w2 = eligible["weight"].max()
-            segment_length = w2 - w1
-            print(
-                f"beta={beta} -> w1={w1:.6f}, "
-                f"w2={w2:.6f}, w2-w1={segment_length:.6f}"
-            )
+            w1 = float(eligible["weight"].min())
+            w2 = float(eligible["weight"].max())
+            segment_length = float(w2 - w1)
+
+            # 🔹 salvo per questo beta
+            weight_segments[float(beta)] = {
+                "w1": w1,
+                "w2": w2,
+                "delta": segment_length,
+            }
 
             plt.hlines(
                 y=threshold,
@@ -214,7 +251,20 @@ def main():
                 linestyles="dashed",
             )
         else:
-            print(f"beta={beta} -> no weights above 80% of max accuracy")
+            # se non c'è segmento salvo comunque qualcosa di esplicito
+            weight_segments[float(beta)] = {
+                "w1": None,
+                "w2": None,
+                "delta": None,
+            }
+
+    # 🔹 ora che abbiamo tutto, salviamo il metadata in YAML
+    save_experiment_metadata(
+        results_dir=RESULTS_DIR,
+        parameter_name=PARAM_NAME,
+        parameter_values=BETA_VALUES,
+        weight_segments=weight_segments,
+    )
 
     plt.xlabel("Mean synaptic weight")
     plt.ylabel("Mean CV accuracy")
@@ -227,7 +277,6 @@ def main():
     plt.savefig(plot_path)
     print(f"Saved plot to {plot_path}")
     plt.show()
-
 
 if __name__ == "__main__":
     main()

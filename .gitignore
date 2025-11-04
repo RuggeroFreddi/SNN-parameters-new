@@ -1,2 +1,5 @@
 /snn_parameters/
 results*/
+__pycache__/
+utils/__pycache__/
+*.pyc
