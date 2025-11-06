@@ -3,9 +3,14 @@ import yaml
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# 👇 metti qui la cartella dove hai salvato i risultati
-RESULTS_DIR = "results_MNIST_trace_2025_11_04"  # cambia la data
-CSV_NAME = os.path.join(RESULTS_DIR, "experiment_membrane_threshold_51.csv")
+TASK = "MNIST" # possible values: "MNIST"
+OUTPUT_FEATURES = "statistics" # possible values: "statistics", "trace"
+PARAM_NAME = "membrane_threshold" # possible value: "beta", "membrane_threshold", "current_amplitude"
+NUM_WEIGHT_STEPS = 51  # how many mean_weight values have been testes
+DATE = "2025_11_05"
+
+RESULTS_DIR = f"results_{TASK}_{OUTPUT_FEATURES}_{DATE}"  # cambia la data
+CSV_NAME = os.path.join(RESULTS_DIR, f"experiment_{PARAM_NAME}_{NUM_WEIGHT_STEPS}.csv")
 YAML_NAME = os.path.join(RESULTS_DIR, "experiment_metadata.yaml")
 
 
@@ -22,20 +27,20 @@ def plot_accuracy(results_df: pd.DataFrame, metadata: dict):
     plt.figure()
 
     for value in param_values:
-        beta_df = results_df[results_df["param_value"] == value].copy()
-        beta_df = beta_df.sort_values(by="weight")
+        parameter_df = results_df[results_df["param_value"] == value].copy()
+        parameter_df = parameter_df.sort_values(by="weight")
 
         plt.plot(
-            beta_df["weight"],
-            beta_df["accuracy"],
+            parameter_df["weight"],
+            parameter_df["accuracy"],
             marker="o",
-            label=f"beta={value}",
+            label=f"{PARAM_NAME}={value}",
         )
 
-        max_accuracy = beta_df["accuracy"].max()
+        max_accuracy = parameter_df["accuracy"].max()
         threshold = accuracy_threshold * max_accuracy
 
-        eligible = beta_df[beta_df["accuracy"] >= threshold]
+        eligible = parameter_df[parameter_df["accuracy"] >= threshold]
         if not eligible.empty:
             w1 = eligible["weight"].min()
             w2 = eligible["weight"].max()
@@ -49,7 +54,7 @@ def plot_accuracy(results_df: pd.DataFrame, metadata: dict):
 
     plt.xlabel("Mean synaptic weight")
     plt.ylabel("Mean CV accuracy")
-    plt.title("Accuracy vs weight for different beta values")
+    plt.title(f"Accuracy vs weight for different {PARAM_NAME} values")
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
@@ -65,19 +70,19 @@ def plot_spike_count(results_df: pd.DataFrame, metadata: dict):
     plt.figure()
 
     for value in param_values:
-        beta_df = results_df[results_df["param_value"] == value].copy()
-        beta_df = beta_df.sort_values(by="weight")
+        parameter_df = results_df[results_df["param_value"] == value].copy()
+        parameter_df = parameter_df.sort_values(by="weight")
 
         plt.plot(
-            beta_df["weight"],
-            beta_df["spike_count"],
+            parameter_df["weight"],
+            parameter_df["spike_count"],
             marker="o",
-            label=f"beta={value}",
+            label=f"{PARAM_NAME}={value}",
         )
 
     plt.xlabel("Mean synaptic weight")
     plt.ylabel("Mean spike count")
-    plt.title("Spike count vs weight for different beta values")
+    plt.title(f"Spike count vs weight for different {PARAM_NAME} values")
     plt.grid(True)
     plt.legend()
     plt.tight_layout()

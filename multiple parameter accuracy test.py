@@ -36,11 +36,11 @@ SMALL_WORLD_GRAPH_K = int(PRESYNAPTIC_DEGREE * NUM_NEURONS * 2)
 TRACE_TAU = 60
 NUM_WEIGHT_STEPS = 51  # how many mean_weight values to test
 
-PARAM_NAME = "beta" # possible value: "beta", "membrane_threshold", "current_amplitude"
+PARAM_NAME = "current_amplitude" # possible value: "beta", "membrane_threshold", "current_amplitude"
 
-PARAMETER_VALUES = [0.2, 0.3, 0.4] # use it when PARM_NAME = "beta"
+# PARAMETER_VALUES = [0.2, 0.3, 0.4] # use it when PARM_NAME = "beta"
 # PARAMETER_VALUES = [2, 1.42963091165, 1.1048193827] # use it when PARM_NAME = "membrane_threshold"
-# PARAMETER_VALUES = [0.5, 1, 2] # use it when PARM_NAME = "current_amplitude"
+PARAMETER_VALUES = [0.5, 1, 2] # use it when PARM_NAME = "current_amplitude"
 
 today_str = date.today().strftime("%Y_%m_%d")
 RESULTS_DIR = f"results_{TASK}_{OUTPUT_FEATURES}_{today_str}"
@@ -57,12 +57,13 @@ def load_dataset(filename: str):
     npz_data = np.load(filename)
     return npz_data["X"], npz_data["y"]
 
-def save_experiment_metadata(results_dir: str, parameter_name: str, parameter_values: list[float], weight_segments: dict[float, dict[str, float]]):
+def save_experiment_metadata(results_dir: str, parameter_name: str, parameter_values: list[float], weight_segments: dict[float, dict[str, float]], mean_I):
     """Save global parameters, tested parameter values, and weight segments to a YAML file."""
     metadata = {
         "experiment" :{
             "task": TASK,
             "output_features": OUTPUT_FEATURES,
+            "mean_I": mean_I,
         },
         "global_parameters": {
             "num_neurons": NUM_NEURONS,
@@ -89,6 +90,17 @@ def save_experiment_metadata(results_dir: str, parameter_name: str, parameter_va
     yaml_path = os.path.join(results_dir, "experiment_metadata.yaml")
     with open(yaml_path, "w") as file:
         yaml.safe_dump(metadata, file, sort_keys=False)
+
+def compute_mean_I(inputs: np.ndarray):
+    """
+    Estimate the average input current injected into the network.
+    """
+    avg_input_current = (
+        np.sum(inputs)
+        / (inputs.shape[0] * inputs.shape[2])
+    )
+
+    return avg_input_current
 
 def compute_critical_weight(
     inputs: np.ndarray,
@@ -221,6 +233,7 @@ def main():
 
     data, labels = load_dataset(DATASET_PATH)
     print(f"Loaded data: {data.shape}, labels: {labels.shape}")
+    mean_I = compute_mean_I(data)
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -269,21 +282,19 @@ def main():
                 linestyles="dashed",
             )
         else:
-            # se non c'è segmento salvo comunque qualcosa di esplicito
             weight_segments[float(parameter)] = {
                 "w1": None,
                 "w2": None,
                 "delta": None,
             }
-
-    # 🔹 ora che abbiamo tutto, salviamo il metadata in YAML
+        # 🔹 ora che abbiamo tutto, salviamo il metadata in YAML
     save_experiment_metadata(
         results_dir=RESULTS_DIR,
         parameter_name=PARAM_NAME,
         parameter_values=PARAMETER_VALUES,
         weight_segments=weight_segments,
+        mean_I = mean_I,
     )
-
     plt.xlabel("Mean synaptic weight")
     plt.ylabel("Mean CV accuracy")
     plt.title(f"Accuracy vs. weight for different {PARAM_NAME} values")
