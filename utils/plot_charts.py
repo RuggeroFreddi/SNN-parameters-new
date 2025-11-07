@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 
 TASK = "MNIST" # possible values: "MNIST"
 OUTPUT_FEATURES = "trace" # possible values: "statistics", "trace"
-PARAM_NAME = "membrane_threshold" # possible value: "beta", "membrane_threshold", "current_amplitude"
+PARAM_NAME = "current_amplitude" # possible value: "beta", "membrane_threshold", "current_amplitude"
 NUM_WEIGHT_STEPS = 51  # how many mean_weight values have been testes
-DATE = "2025_11_04"
+DATE = "2025_11_06"
 
-RESULTS_DIR = f"results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{DATE}"  # cambia la data
+RESULTS_DIR = f"results/results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{DATE}"  # cambia la data
 CSV_NAME = os.path.join(RESULTS_DIR, f"experiment_{PARAM_NAME}_{NUM_WEIGHT_STEPS}.csv")
 YAML_NAME = os.path.join(RESULTS_DIR, "experiment_metadata.yaml")
 

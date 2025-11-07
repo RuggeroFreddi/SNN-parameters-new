@@ -102,7 +102,7 @@ def encode_and_save_dataset(dataset, num_samples, num_timesteps, output_path, en
             print(f"✅ Encoded {idx} images → {output_path}")
 
     os.makedirs("dati", exist_ok=True)
-    np.savez_compressed(output_path, X=encoded_images, y=labels)
+    np.savez_compressed(output_path, data=encoded_images, labels=labels)
     print(f"🎉 Saved to '{output_path}'")
 
     # === Display array shapes and stats for verification ===

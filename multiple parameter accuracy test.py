@@ -1,3 +1,8 @@
+"""nota per me: la formula per i MEMBRANE_THRESHOLD 
+MEMBRANE_THRESHOLD = (MEMBRANE_THRESHOLD - 2 * I * REFRACTORY_PERIOD) * (beta_rir / beta_new) + 2 * I * REFRACTORY_PERIOD
+esempio: se voglio sapere quale valore di MEMBRANE_THRESHOLD usare affinchè il punto critico sia uguale a quello che avevo usando
+MEMBRANE_THRESHOLD_rif e beta_new, nel momento in cui beta è beta_rif, allora uso la formual qui sopra"""
+
 import os
 import yaml
 from datetime import date
@@ -7,58 +12,114 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from snnpy.snn import SimulationParams
-from utils.simulates import simulate_trace, simulate_statistic_features
-from utils.cross_validations import cross_validation_rf
+from functions.simulates import simulate_trace, simulate_statistic_features
+from functions.cross_validations import cross_validation_rf
 
-TASK = "MNIST" # possible values: "MNIST"
-OUTPUT_FEATURES = "statistics" # possible values: "statistics", "trace"
+# the following global variables will be loaded using function load_config
+TASK = None
+OUTPUT_FEATURES = None
+CV_NUM_SPLITS = None
+ACCURACY_THRESHOLD = None
+NUM_NEURONS = None
+MEMBRANE_THRESHOLD = None
+REFRACTORY_PERIOD = None
+NUM_OUTPUT_NEURONS = None
+LEAK_COEFFICIENT = None
+CURRENT_AMPLITUDE = None
+PRESYNAPTIC_DEGREE = None
+SMALL_WORLD_GRAPH_P = None
+SMALL_WORLD_GRAPH_K = None
+TRACE_TAU = None
+NUM_WEIGHT_STEPS = None
+PARAM_NAME = None
+PARAMETER_VALUES = None
+DATASET_PATH = None
+RESULTS_DIR = None
+CSV_NAME = None
 
-if TASK=="MNIST": 
-    DATASET_PATH = "dati/mnist_rate_encoded.npz"
-else:
-    print("selected unknown task.")
-    exit()
-CV_NUM_SPLITS = 10
+def load_config(path: str = "settings/config.yaml"):
+    global TASK, OUTPUT_FEATURES, CV_NUM_SPLITS, ACCURACY_THRESHOLD
+    global NUM_NEURONS, MEMBRANE_THRESHOLD, REFRACTORY_PERIOD, NUM_OUTPUT_NEURONS
+    global LEAK_COEFFICIENT, CURRENT_AMPLITUDE, PRESYNAPTIC_DEGREE
+    global SMALL_WORLD_GRAPH_P, SMALL_WORLD_GRAPH_K, TRACE_TAU
+    global NUM_WEIGHT_STEPS, PARAM_NAME, PARAMETER_VALUES
+    global DATASET_PATH, CSV_NAME, RESULTS_DIR, STATISTIC_SET
 
-ACCURACY_THRESHOLD = 0.8
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Config non trovato: {path}")
 
-NUM_NEURONS = 1000
-MEMBRANE_THRESHOLD = 2
-REFRACTORY_PERIOD = 2
-NUM_OUTPUT_NEURONS = 50
-LEAK_COEFFICIENT = 0
-CURRENT_AMPLITUDE = MEMBRANE_THRESHOLD
-PRESYNAPTIC_DEGREE = 0.2  
-SMALL_WORLD_GRAPH_P = 0.2
-SMALL_WORLD_GRAPH_K = int(PRESYNAPTIC_DEGREE * NUM_NEURONS * 2)
+    with open(path, "r") as f:
+        cfg = yaml.safe_load(f)
 
+    # calcolo derivato
+    presyn = cfg["PRESYNAPTIC_DEGREE"]
+    num_neurons = cfg["NUM_NEURONS"]
+    cfg["SMALL_WORLD_GRAPH_K"] = int(presyn * num_neurons * 2)
 
-TRACE_TAU = 60
-NUM_WEIGHT_STEPS = 51  # how many mean_weight values to test
+    # assegno alle globali
+    TASK = cfg["TASK"]
+    OUTPUT_FEATURES = cfg["OUTPUT_FEATURES"]
+    CV_NUM_SPLITS = cfg["CV_NUM_SPLITS"]
+    ACCURACY_THRESHOLD = cfg["ACCURACY_THRESHOLD"]
+    NUM_NEURONS = cfg["NUM_NEURONS"]
+    MEMBRANE_THRESHOLD = cfg["MEMBRANE_THRESHOLD"]
+    REFRACTORY_PERIOD = cfg["REFRACTORY_PERIOD"]
+    NUM_OUTPUT_NEURONS = cfg["NUM_OUTPUT_NEURONS"]
+    LEAK_COEFFICIENT = cfg["LEAK_COEFFICIENT"]
+    CURRENT_AMPLITUDE = cfg["CURRENT_AMPLITUDE"]
+    PRESYNAPTIC_DEGREE = cfg["PRESYNAPTIC_DEGREE"]
+    SMALL_WORLD_GRAPH_P = cfg["SMALL_WORLD_GRAPH_P"]
+    SMALL_WORLD_GRAPH_K = cfg["SMALL_WORLD_GRAPH_K"]
+    TRACE_TAU = cfg["TRACE_TAU"]
+    NUM_WEIGHT_STEPS = cfg["NUM_WEIGHT_STEPS"]
+    PARAM_NAME = cfg["PARAM_NAME"]
+    PARAMETER_VALUES = cfg["PARAMETER_VALUES"]
+    
+    if TASK=="MNIST": 
+        DATASET_PATH = "dati/mnist_rate_encoded.npz"
+        STATISTIC_SET = 1
+    elif TASK  == "TRAJECTORY":
+        DATASET_PATH = "dati/trajectory_spike_encoded.npz"
+        STATISTIC_SET = 2
+    else:
+        print("selected unknown task.")
+        exit()
 
-PARAM_NAME = "membrane_threshold" # possible value: "beta", "membrane_threshold", "current_amplitude"
+    today_str = date.today().strftime("%Y_%m_%d")
+    RESULTS_DIR = f"results/results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{today_str}"
+    CSV_NAME = os.path.join(
+        RESULTS_DIR,
+        f"experiment_{PARAM_NAME}_{NUM_WEIGHT_STEPS}.csv",
+    )
 
-# PARAMETER_VALUES = [0.2, 0.3, 0.4] # use it when PARM_NAME = "beta"
-# PARAMETER_VALUES = [2, 1.42963091165, 1.1048193827] # use it when PARM_NAME = "membrane_threshold"
-PARAMETER_VALUES = [0.5, 1, 2] # use it when PARM_NAME = "current_amplitude"
-
-today_str = date.today().strftime("%Y_%m_%d")
-RESULTS_DIR = f"results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{today_str}"
-CSV_NAME = os.path.join(
-    RESULTS_DIR,
-    f"experiment_{PARAM_NAME}_{NUM_WEIGHT_STEPS}.csv",
-)
-
+    return cfg
 
 def load_dataset(filename: str):
     """
     Return (data, labels) from a .npz file.
     """
     npz_data = np.load(filename)
-    return npz_data["X"], npz_data["y"]
+    return npz_data["data"], npz_data["labels"]
 
-def save_experiment_metadata(results_dir: str, parameter_name: str, parameter_values: list[float], weight_segments: dict[float, dict[str, float]], mean_I):
-    """Save global parameters, tested parameter values, and weight segments to a YAML file."""
+def _to_builtin(obj):
+    # converte ricorsivamente numpy/pandas -> tipi Python
+    if isinstance(obj, (np.floating, np.float32, np.float64)):
+        return float(obj)
+    if isinstance(obj, (np.integer, np.int32, np.int64)):
+        return int(obj)
+    if isinstance(obj, np.ndarray):
+        return [_to_builtin(x) for x in obj.tolist()]
+    if isinstance(obj, dict):
+        return { _to_builtin(k): _to_builtin(v) for k, v in obj.items() }
+    if isinstance(obj, (list, tuple, set)):
+        return [ _to_builtin(x) for x in obj ]
+    return obj  # stringhe, bool, None, ecc.
+
+def save_experiment_metadata(results_dir: str,
+                             parameter_name: str,
+                             parameter_values: list[float],
+                             weight_segments: dict[float, dict[str, float]],
+                             mean_I):
     metadata = {
         "experiment" :{
             "task": TASK,
@@ -86,6 +147,9 @@ def save_experiment_metadata(results_dir: str, parameter_name: str, parameter_va
         },
         "weight_segments": weight_segments,
     }
+
+    # 💡 qui puliamo tutto
+    metadata = _to_builtin(metadata)
 
     yaml_path = os.path.join(results_dir, "experiment_metadata.yaml")
     with open(yaml_path, "w") as file:
@@ -178,11 +242,12 @@ def test_parameter_values(data, labels , param_name: str, param_values: list[flo
         else:
             raise ValueError(f"Unknown parameter: {param_name}")
 
-        _, critical_weight = compute_critical_weight(
+        input_current, critical_weight = compute_critical_weight(
             data,
             param_name,
             param_value,
         )
+
         weight_values = np.linspace(
             critical_weight / 100,
             critical_weight * 1.4,
@@ -201,6 +266,7 @@ def test_parameter_values(data, labels , param_name: str, param_values: list[flo
                     data=data,
                     labels=labels,
                     parameters=sim_params,
+                    statistic_set=STATISTIC_SET,
                 )
             elif OUTPUT_FEATURES == "trace":
                 trace_dataset, spike_count = simulate_trace(
@@ -229,6 +295,8 @@ def test_parameter_values(data, labels , param_name: str, param_values: list[flo
     return all_results
 
 def main():
+    load_config()
+    
     os.makedirs("dati", exist_ok=True)
 
     data, labels = load_dataset(DATASET_PATH)

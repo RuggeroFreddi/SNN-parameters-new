@@ -1,27 +1,31 @@
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 
 from snnpy.snn import SimulationParams
-from utils.simulates import simulate_trace, simulate_statistic_features
-from utils.cross_validations import cross_validation_rf
+
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parent.parent  # la cartella sopra utils
+sys.path.append(str(ROOT))
+from functions.simulates import simulate_trace, simulate_statistic_features
+from functions.cross_validations import cross_validation_rf
 
 
-DATASET_PATH = "dati/mnist_rate_encoded.npz"
+DATASET_PATH = "dati/trajectory_spike_encoded.npz"
 CV_NUM_SPLITS = 10
 
-NUM_NEURONS = 1000
+NUM_NEURONS = 2000
 MEMBRANE_THRESHOLD = 2
 REFRACTORY_PERIOD = 2
-NUM_OUTPUT_NEURONS = 35
+NUM_OUTPUT_NEURONS = 50
 LEAK_COEFFICIENT = 0
 CURRENT_AMPLITUDE = MEMBRANE_THRESHOLD
-PRESYNAPTIC_DEGREE = 0.2
+PRESYNAPTIC_DEGREE = 0.20
 SMALL_WORLD_GRAPH_P = 0.2
 
 TRACE_TAU = 60
-NUM_WEIGHT_STEPS = 11  # how many weights to test
+NUM_WEIGHT_STEPS = 51  # how many weights to test
 
 
 def load_dataset(filename: str):
@@ -29,7 +33,7 @@ def load_dataset(filename: str):
     Return (data, labels) from a .npz file.
     """
     npz_data = np.load(filename)
-    return npz_data["X"], npz_data["y"]
+    return npz_data["data"], npz_data["labels"]
 
 
 def compute_critical_weight(inputs: np.ndarray):
@@ -93,18 +97,20 @@ def main():
         sim_params.mean_weight = weight
         sim_params.weight_variance = weight * 5
 
-        """trace_dataset, _ = simulate_trace(
+        trace_dataset, _ = simulate_trace(
             data=data,
             labels=labels,
             parameters=sim_params,
             trace_tau=TRACE_TAU,
-        )"""
+        )
 
-        trace_dataset, _ = simulate_statistic_features(
+        """trace_dataset, _ = simulate_statistic_features(
             data=data,
             labels=labels,
             parameters=sim_params,
-        )
+            statistic_set=2,
+        )"""
+        
         mean_accuracy = cross_validation_rf(trace_dataset, CV_NUM_SPLITS)
         print("Mean accuracy:", mean_accuracy)
 
@@ -115,13 +121,16 @@ def main():
     accuracies_plot = [acc for (_, acc) in results]
 
     plt.figure()
-    plt.plot(weights_plot, accuracies_plot, marker="o")
+    plt.plot(weights_plot, accuracies_plot, marker="o", label="Accuracy")
+    plt.axvline(x=critical_weight, color="red", linestyle="--", label="Critical weight")
     plt.xlabel("Mean synaptic weight")
     plt.ylabel("Mean CV accuracy")
     plt.title("Accuracy vs. mean synaptic weight")
     plt.grid(True)
+    plt.legend()  # <- questa
     plt.tight_layout()
     plt.show()
+
 
 
 if __name__ == "__main__":

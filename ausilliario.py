@@ -1,6 +1,5 @@
 import os
 import yaml
-from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -8,10 +7,10 @@ import matplotlib.pyplot as plt
 
 # ================== PARAMETRI "DI TESTA" (come nello script originale) ==================
 TASK = "MNIST"  # es: "MNIST"
-OUTPUT_FEATURES = "statistics"  # "statistics" oppure "trace"
+OUTPUT_FEATURES = "trace"  # "statistics" oppure "trace"
 
 # se vuoi ricalcolare mean_I metti il path qui, altrimenti lascia None
-DATASET_PATH = "dati/mnist_rate_encoded.npz"  # oppure None
+DATASET_PATH = "dati/mnist_rate_encoded.npz"
 
 CV_NUM_SPLITS = 10
 ACCURACY_THRESHOLD = 0.8
@@ -30,12 +29,14 @@ TRACE_TAU = 60
 NUM_WEIGHT_STEPS = 51
 
 # questo deve corrispondere a quello usato per generare il CSV
-PARAM_NAME = "membrane_threshold"  # "beta", "membrane_threshold", "current_amplitude"
-PARAMETER_VALUES = [2, 1.42963091165, 1.1048193827]    # lista dei valori testati (serve per fare i plot e lo yaml)
+PARAM_NAME = "current_amplitude"  # "beta", "membrane_threshold", "current_amplitude"
+#PARAMETER_VALUES = [2, 1.42963091165, 1.1048193827]    # lista dei valori testati per membrane_threshold (serve per fare i plot e lo yaml)
+#PARAMETER_VALUES = [0.2, 0.3, 0.4] # lista dei valori testati per beta (serve per fare i plot e lo yaml)
+PARAMETER_VALUES = [0.5, 1, 2] # lista dei valori testati per current_amplitude (serve per fare i plot e lo yaml)
 
 # ricostruiamo nomi/cartelle come nello script originale
-today_str = "2025_11_05"
-RESULTS_DIR = f"results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{today_str}"
+today_str = "2025_11_06"
+RESULTS_DIR = f"results/results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{today_str}"
 CSV_NAME = os.path.join(
     RESULTS_DIR,
     f"experiment_{PARAM_NAME}_{NUM_WEIGHT_STEPS}.csv",
@@ -56,7 +57,7 @@ def load_dataset_for_mean_I(filename: str) -> float | None:
         return None
 
     npz_data = np.load(filename)
-    inputs = npz_data["X"]  # shape: (n_samples, ?, timesteps)
+    inputs = npz_data["data"]  # shape: (n_samples, ?, timesteps)
     # nel tuo codice originale: np.sum(inputs) / (inputs.shape[0] * inputs.shape[2])
     avg_input_current = np.sum(inputs) / (inputs.shape[0] * inputs.shape[2])
     return float(avg_input_current)
