@@ -4,10 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 TASK = "MNIST"  # possible values: "MNIST", "TRAJECTORY"
-OUTPUT_FEATURES = "statistics"  # possible values: "statistics", "trace"
-PARAM_NAME = "membrane_threshold"  # possible value: "beta", "membrane_threshold", "current_amplitude"
-NUM_WEIGHT_STEPS = 51
-DATE = "2025_11_11"
+OUTPUT_FEATURES = "trace"  # possible values: "statistics", "trace"
+PARAM_NAME = "beta"  # possible value: "beta", "membrane_threshold", "current_amplitude"
+NUM_WEIGHT_STEPS = 61
+DATE = "2025_11_23"
 
 RESULTS_DIR = f"results/results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{DATE}"
 CSV_NAME = os.path.join(RESULTS_DIR, f"experiment_{PARAM_NAME}_{NUM_WEIGHT_STEPS}.csv")
@@ -134,58 +134,39 @@ def plot_spike_count(results_df: pd.DataFrame, metadata: dict):
 
 
 def main():
-    # Il CSV ora include: param_value, weight, accuracy_rf/std, accuracy_slp/std, f1_rf/std, f1_slp/std, spike_count
+    # Il CSV ora include: param_value, weight, accuracy_*, f1_*, mcc_*, spike_count (+ std_*)
     results_df = pd.read_csv(CSV_NAME)
     metadata = load_metadata(YAML_NAME)
 
-    # ACCURACY — Random Forest
-    plot_metric_model(
-        results_df,
-        metadata,
-        metric_col="accuracy_rf",
-        std_col="std_accuracy_rf",
-        model_name="Random Forest",
-        ylabel="Mean CV accuracy",
-        filename="plot_accuracy_rf.png",
-    )
+    # elenco (metrica_col, std_col, modello, ylabel, filename)
+    plots = [
+        ("accuracy_rf", "std_accuracy_rf", "Random Forest", "Mean CV accuracy", "plot_accuracy_rf.png"),
+        ("accuracy_slp", "std_accuracy_slp", "Single-layer perceptron", "Mean CV accuracy", "plot_accuracy_slp.png"),
+        ("f1_rf", "std_f1_rf", "Random Forest", "Mean CV F1", "plot_f1_rf.png"),
+        ("f1_slp", "std_f1_slp", "Single-layer perceptron", "Mean CV F1", "plot_f1_slp.png"),
+        # ✅ nuovi grafici MCC
+        ("mcc_rf", "std_mcc_rf", "Random Forest", "Mean CV MCC", "plot_mcc_rf.png"),
+        ("mcc_slp", "std_mcc_slp", "Single-layer perceptron", "Mean CV MCC", "plot_mcc_slp.png"),
+    ]
 
-    # ACCURACY — Single-layer perceptron
-    plot_metric_model(
-        results_df,
-        metadata,
-        metric_col="accuracy_slp",
-        std_col="std_accuracy_slp",
-        model_name="Single-layer perceptron",
-        ylabel="Mean CV accuracy",
-        filename="plot_accuracy_slp.png",
-    )
-
-    # F1 — Random Forest
-    plot_metric_model(
-        results_df,
-        metadata,
-        metric_col="f1_rf",
-        std_col="std_f1_rf",
-        model_name="Random Forest",
-        ylabel="Mean CV F1",
-        filename="plot_f1_rf.png",
-    )
-
-    # F1 — Single-layer perceptron
-    plot_metric_model(
-        results_df,
-        metadata,
-        metric_col="f1_slp",
-        std_col="std_f1_slp",
-        model_name="Single-layer perceptron",
-        ylabel="Mean CV F1",
-        filename="plot_f1_slp.png",
-    )
+    for metric_col, std_col, model_name, ylabel, filename in plots:
+        # se la colonna std non esiste nel CSV, passiamola comunque:
+        std_col_used = std_col if std_col in results_df.columns else None
+        plot_metric_model(
+            results_df=results_df,
+            metadata=metadata,
+            metric_col=metric_col,
+            std_col=std_col_used,
+            model_name=model_name,
+            ylabel=ylabel,
+            filename=filename,
+        )
 
     # opzionale: spike count
     plot_spike_count(results_df, metadata)
 
     plt.show()
+
 
 
 if __name__ == "__main__":

@@ -103,7 +103,7 @@ def load_dataset(filename: str):
     Return (data, labels) from a .npz file.
     """
     npz_data = np.load(filename)
-    return npz_data["X"], npz_data["y"]
+    return npz_data["data"], npz_data["labels"]
 
 def _to_builtin(obj):
     # converte ricorsivamente numpy/pandas -> tipi Python
@@ -266,7 +266,7 @@ def test_parameter_values(data, labels , param_name: str, param_values: list[flo
             cnt += 1
             print(f"\n--- mean_weight = {weight:.6f} --- execution {cnt}/{NUM_WEIGHT_STEPS} with {param_name} = {param_value}")
             sim_params.mean_weight = weight
-            sim_params.weight_variance = weight * 5
+            sim_params.weight_variance =  15
             
             if OUTPUT_FEATURES == "statistics":
                 trace_dataset, spike_count = simulate_statistic_features(

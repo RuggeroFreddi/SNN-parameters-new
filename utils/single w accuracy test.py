@@ -1,12 +1,11 @@
 import os
 import numpy as np
 
-from snnpy.snn import SimulationParams
-
 from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parent.parent  # la cartella sopra utils
 sys.path.append(str(ROOT))
+from LSM.model import SimulationParams
 from functions.simulates import simulate_trace, simulate_statistic_features
 from functions.cross_validations import cross_validation_rf
 
@@ -17,13 +16,18 @@ CV_NUM_SPLITS = 10
 NUM_NEURONS = 2000
 MEMBRANE_THRESHOLD = 2
 REFRACTORY_PERIOD = 2
-NUM_OUTPUT_NEURONS = 50
-LEAK_COEFFICIENT = 0
+NUM_OUTPUT_NEURONS = 100
+LEAK_COEFFICIENT = 0.001
 CURRENT_AMPLITUDE = MEMBRANE_THRESHOLD
 PRESYNAPTIC_DEGREE = 0.1
 SMALL_WORLD_GRAPH_P = 0.2
+MEMBRANE_RESET = False
+RELOAD = True
+WEIGHT_VARIANCE = 50
+LEAK_CV = 1
+MEAN_DISTANCE_CV = 5
 
-TRACE_TAU = 60
+TRACE_TAU = 50
 
 
 def load_dataset(filename: str):
@@ -59,14 +63,15 @@ def main():
 
     _, critical_weight = compute_critical_weight(data)
     print(critical_weight)
-    # critical_weight = 0.0038 
+    critical_weight *= 0.9 
 
     small_world_graph_k = int(PRESYNAPTIC_DEGREE * NUM_NEURONS * 2)
 
     sim_params = SimulationParams(
         num_neurons=NUM_NEURONS,
         mean_weight=critical_weight,
-        weight_variance=critical_weight * 5,
+        weight_variance= WEIGHT_VARIANCE,
+        leak_cv = LEAK_CV,
         num_output_neurons=NUM_OUTPUT_NEURONS,
         is_random_uniform=False,
         membrane_threshold=MEMBRANE_THRESHOLD,
@@ -74,6 +79,7 @@ def main():
         refractory_period=REFRACTORY_PERIOD,
         small_world_graph_p=SMALL_WORLD_GRAPH_P,
         small_world_graph_k=small_world_graph_k,
+        mean_distance = MEAN_DISTANCE_CV * critical_weight , 
         input_spike_times=np.zeros(
             (data.shape[1], data.shape[2]),
             dtype=np.uint8,
@@ -90,8 +96,8 @@ def main():
 
     print("avg spike count:", avg_spike_count)
 
-    mean_accuracy, std_accuracy = cross_validation_rf(trace_df, CV_NUM_SPLITS)
-    print("mean accuracy:", mean_accuracy, "std accuracy", std_accuracy)
+    mean_accuracy_rf, std_accuracy_rf,_,_,_,_  = cross_validation_rf(trace_df, CV_NUM_SPLITS)
+    print("mean accuracy:", mean_accuracy_rf, "std accuracy", std_accuracy_rf)
 
 if __name__ == "__main__":
     main()

@@ -46,7 +46,7 @@ def cross_validation_rf(dataset: pd.DataFrame, n_splits: int = 10) -> Tuple[floa
         y_test = labels[test_indices]
         
         model = make_pipeline(
-            SelectKBest(f_classif, k=200),
+            #SelectKBest(f_classif, k=200),
             RandomForestClassifier(**random_forest_params)
         )
 
@@ -115,7 +115,7 @@ def cross_validation_lr(dataset: pd.DataFrame, n_splits: int = 10) -> Tuple[floa
         y_test = labels[test_indices]
 
         model = make_pipeline(
-            SelectKBest(f_classif, k=200),
+            #SelectKBest(f_classif, k=200),
             StandardScaler(),
             LogisticRegression(**logistic_params),
         )
@@ -187,7 +187,7 @@ def cross_validation_slp(dataset: pd.DataFrame, n_splits: int = 10) -> Tuple[flo
         y_test = labels[test_indices]
 
         model = make_pipeline(
-            SelectKBest(f_classif, k=200),
+            #SelectKBest(f_classif, k=200),
             StandardScaler(),
             Perceptron(**perceptron_params),
         )

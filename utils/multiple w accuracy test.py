@@ -2,31 +2,35 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from snnpy.snn import SimulationParams
-
 from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parent.parent  # la cartella sopra utils
 sys.path.append(str(ROOT))
-from functions.simulates import simulate_trace, simulate_statistic_features
+from LSM.model import SimulationParams
+from functions.simulates import simulate_trace, simulate_statistic_features, simulate
 from functions.cross_validations import cross_validation_rf, cross_validation_slp, cross_validation_lr
 
 
+DATASET_PATH = "dati/mnist_rate_encoded.npz" #"dati/trajectory_spike_encoded.npz"
 DATASET_PATH = "dati/trajectory_spike_encoded.npz"
+
 CV_NUM_SPLITS = 10
 
 NUM_NEURONS = 2000
 MEMBRANE_THRESHOLD = 2
 REFRACTORY_PERIOD = 2
-NUM_OUTPUT_NEURONS = 800
-LEAK_COEFFICIENT = 0
+NUM_OUTPUT_NEURONS = 100
+LEAK_COEFFICIENT = 0.004
 CURRENT_AMPLITUDE = MEMBRANE_THRESHOLD
 PRESYNAPTIC_DEGREE = 0.20
 SMALL_WORLD_GRAPH_P = 0.2
 
-TRACE_TAU = 30
+TRACE_TAU = 50
 NUM_WEIGHT_STEPS = 21  # how many weights to test
-MEMBRANE_RESET = True
+MEMBRANE_RESET = False
+RELOAD = True
+WEIGHT_VARIANCE = 15
+
 
 def load_dataset(filename: str):
     """
@@ -68,7 +72,7 @@ def main():
     sim_params = SimulationParams(
         num_neurons=NUM_NEURONS,
         mean_weight=critical_weight,
-        weight_variance=critical_weight * 5,
+        weight_variance= WEIGHT_VARIANCE,
         num_output_neurons=NUM_OUTPUT_NEURONS,
         is_random_uniform=False,
         membrane_threshold=MEMBRANE_THRESHOLD,
@@ -85,27 +89,31 @@ def main():
     # choose the weights to test
     weight_values = np.linspace(
         critical_weight / 100,
-        critical_weight * 1.4,
+        critical_weight * 1.3,
         #critical_weight * 1,
         NUM_WEIGHT_STEPS,
     )
 
     results = []  # list of (weight, accuracy)
     cnt = 0
+    is_first = True
     for weight in weight_values:
         cnt+= 1
         print(f"\n--- Testing weight = {weight:.6f} ---test {cnt}/{NUM_WEIGHT_STEPS}")
         sim_params.mean_weight = weight
-        sim_params.weight_variance = weight * 5
+        sim_params.weight_variance = WEIGHT_VARIANCE 
 
-        trace_dataset, avg_spike = simulate_trace(
+        trace_dataset, _, avg_spike = simulate(
             data=data,
             labels=labels,
             parameters=sim_params,
             trace_tau=TRACE_TAU,
+            statistic_set=2,
+            reload=RELOAD,
+            is_first = is_first,
             membrane_reset= MEMBRANE_RESET,
         )
-
+        is_first = False
         """trace_dataset, avg_spike = simulate_statistic_features(
             data=data,
             labels=labels,
@@ -114,10 +122,10 @@ def main():
             membrane_reset= MEMBRANE_RESET,
         )"""
 
-        mean_accuracy_rf, std_accuracy_rf = cross_validation_rf(trace_dataset, CV_NUM_SPLITS)
+        mean_accuracy_rf, std_accuracy_rf,_,_,_,_ = cross_validation_rf(trace_dataset, CV_NUM_SPLITS)
         print("Mean accuracy: ", mean_accuracy_rf, "std accuracy: ", std_accuracy_rf, "avg spike: ", avg_spike)
 
-        mean_accuracy_slp, std_accuracy_slp = cross_validation_slp(trace_dataset, CV_NUM_SPLITS)
+        mean_accuracy_slp, std_accuracy_slp,_,_,_,_ = cross_validation_slp(trace_dataset, CV_NUM_SPLITS)
         print("Mean accuracy: ", mean_accuracy_slp, "std accuracy: ", std_accuracy_slp, "avg spike: ", avg_spike)
 
         results.append((weight, mean_accuracy_rf, std_accuracy_rf, mean_accuracy_slp, std_accuracy_slp))
