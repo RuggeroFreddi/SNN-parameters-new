@@ -17,7 +17,7 @@ from functions.cross_validations import cross_validation_rf, cross_validation_sl
 
 # the following global variables will be loaded using function load_config
 MIN_INTERVAL = 1/100
-MAX_INTERVAL = 1.7
+MAX_INTERVAL = 2
 WEIGHT_VARIANCE = None
 RELOAD = None
 TASK = None

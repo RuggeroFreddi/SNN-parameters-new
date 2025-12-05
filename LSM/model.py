@@ -418,7 +418,7 @@ class Reservoir:
         else:
             if len(simulation_params.membrane_potentials) != self.num_neurons:
                 raise ValueError("Length of 'membrane_potentials' must be equal to 'num_neurons'.")
-            self.membrane_potentials = simulation_params.membrane_potentials.astype(np.float32, copy=False)
+            self.membrane_potentials = simulation_params.membrane_potentials.astype(np.float32, copy=True)
 
 
         self.membrane_potentials_init = self.membrane_potentials.copy()

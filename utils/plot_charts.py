@@ -3,11 +3,13 @@ import yaml
 import pandas as pd
 import matplotlib.pyplot as plt
 
+THRESHOLD = 0.8
+
 TASK = "MNIST"  # possible values: "MNIST", "TRAJECTORY"
 OUTPUT_FEATURES = "trace"  # possible values: "statistics", "trace"
 PARAM_NAME = "beta"  # possible value: "beta", "membrane_threshold", "current_amplitude"
-NUM_WEIGHT_STEPS = 61
-DATE = "2025_11_23"
+NUM_WEIGHT_STEPS = 101
+DATE = "2025_11_25"
 
 RESULTS_DIR = f"results/results_{TASK}_{OUTPUT_FEATURES}_{PARAM_NAME}_{DATE}"
 CSV_NAME = os.path.join(RESULTS_DIR, f"experiment_{PARAM_NAME}_{NUM_WEIGHT_STEPS}.csv")
@@ -41,7 +43,7 @@ def plot_metric_model(
     refractory_period = metadata["global_parameters"]["refractory_period"]
     small_world_graph_k = metadata["global_parameters"]["small_world_graph_k"]
     num_neurons = metadata["global_parameters"]["num_neurons"]
-
+    accuracy_threshold = THRESHOLD
     # stessa formula che avevi tu
     w_critical = (membrane_threshold - 2 * (I / num_neurons) * refractory_period) / (small_world_graph_k / 2)
 
